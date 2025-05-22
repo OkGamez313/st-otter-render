@@ -61,3 +61,53 @@ jQuery(async () => {
   // Load settings when starting things up (if you have any)
   loadSettings();
 });
+const path = require('path');
+const fs = require('fs');
+
+const { detectPOV, buildPrompt, getInstalledLoras, matchLora } = require('./renderingEngine');
+
+let config = {}; // To be loaded from your card or config file
+
+function loadCharacterConfig() {
+  const configPath = path.join(__dirname, 'config.json');
+  if (fs.existsSync(configPath)) {
+    const raw = fs.readFileSync(configPath, 'utf-8');
+    config = JSON.parse(raw);
+    console.log(`[Heather Renderer] Loaded config from config.json`);
+  } else {
+    console.warn(`[Heather Renderer] No config.json found, using defaults.`);
+  }
+}
+
+function onMessage(message, chatInterface) {
+  const content = message.content || '';
+  const pov = detectPOV(content);
+
+  const state = {
+    tf: message.tf || null,
+    outfit: message.outfit || "casual",
+    mood: message.mood || "focused",
+    scene: message.scene || "",
+    wearing_pants: true
+  };
+
+  const prompt = buildPrompt(state, config.rendering_config);
+
+  console.log(`[Heather Renderer] POV: ${pov}`);
+  console.log(`[Heather Renderer] Prompt: ${prompt}`);
+
+  chatInterface.sendSystemMessage(`🔧 [Render] (${pov}) → "${prompt}"`);
+
+  // OPTIONAL: send prompt to backend here
+}
+
+function setup(api) {
+  loadCharacterConfig();
+
+  api.registerEvent('message:sent', onMessage);
+  console.log('[Heather Renderer] Extension loaded.');
+}
+
+module.exports = {
+  setup
+};
